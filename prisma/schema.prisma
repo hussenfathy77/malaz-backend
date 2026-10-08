@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. المستخدمين والأدوار
+model User {
+  id            String    @id @default(uuid())
+  full_name     String
+  email         String    @unique
+  password_hash String
+  role          String    // Patient, Doctor, Caregiver, Admin
+  created_at    DateTime  @default(now())
+
+  patient       Patient?
+  doctor        Doctor?
+  caregiver     Caregiver?
+}
+
+model Patient {
+  id             String    @id @default(uuid())
+  user_id        String    @unique
+  user           User      @relation(fields: [user_id], references: [id])
+  date_of_birth  DateTime
+  phone          String
+
+  caregivers      Caregiver[]
+  appointments    Appointment[]
+  reviews         Review[]
+  medical_records MedicalRecord[]
+  journals        Journal[]
+  mood_logs       MoodTracker[]
+  circle_members  CircleMember[]
+  assessment      Assessment?
+}
+
+model Doctor {
+  id              String    @id @default(uuid())
+  user_id         String    @unique
+  user            User      @relation(fields: [user_id], references: [id])
+  specialization  String
+  session_price   Float
+  avg_rating      Float     @default(0.0)
+  is_verified     Boolean   @default(false)
+
+  working_hours   WorkingHours[]
+  appointments    Appointment[]
+  reviews         Review[]
+  medical_records MedicalRecord[]
+}
+
+model Caregiver {
+  id            String    @id @default(uuid())
+  user_id       String    @unique
+  user          User      @relation(fields: [user_id], references: [id])
+  patient_id    String
+  patient       Patient   @relation(fields: [patient_id], references: [id])
+  relation_type String
+}
+
+// 2. المواعيد، العمل، والدفع
+model WorkingHours {
+  id          String    @id @default(uuid())
+  doctor_id   String
+  doctor      Doctor    @relation(fields: [doctor_id], references: [id])
+  day_of_week Int       // 1 (Monday) to 7 (Sunday)
+  start_time  DateTime  @db.Time
+  end_time    DateTime  @db.Time
+  is_online   Boolean
+}
+
+model Appointment {
+  id            String    @id @default(uuid())
+  patient_id    String
+  patient       Patient   @relation(fields: [patient_id], references: [id])
+  doctor_id     String
+  doctor        Doctor    @relation(fields: [doctor_id], references: [id])
+  schedule_date DateTime
+  status        String    // Pending, Confirmed, Completed, Cancelled
+  type          String    // Online, Offline
+  meeting_link  String?   // For Online sessions
+
+  payment       Payment?
+}
+
+model Payment {
+  id               String      @id @default(uuid())
+  appointment_id   String      @unique
+  appointment      Appointment @relation(fields: [appointment_id], references: [id])
+  amount           Float
+  payment_method   String
+  status           String      // Success, Failed
+  transaction_date DateTime    @default(now())
+}
+
+// 3. السجلات الطبية والتقييمات
+model MedicalRecord {
+  id            String    @id @default(uuid())
+  patient_id    String
+  patient       Patient   @relation(fields: [patient_id], references: [id])
+  doctor_id     String
+  doctor        Doctor    @relation(fields: [doctor_id], references: [id])
+  doctor_notes  String    @db.Text
+  created_at    DateTime  @default(now())
+
+  prescription  Prescription?
+}
+
+model Prescription {
+  id                String        @id @default(uuid())
+  medical_record_id String        @unique
+  medical_record    MedicalRecord @relation(fields: [medical_record_id], references: [id])
+  pdf_url           String
+  created_at        DateTime      @default(now())
+}
+
+model Review {
+  id           String    @id @default(uuid())
+  patient_id   String
+  patient      Patient   @relation(fields: [patient_id], references: [id])
+  doctor_id    String
+  doctor       Doctor    @relation(fields: [doctor_id], references: [id])
+  rating_value Int       // 1 to 5
+  comment      String?   @db.Text
+  created_at   DateTime  @default(now())
+}
+
+// 4. الذكاء الاصطناعي والمتابعة
+model Assessment {
+  id           String    @id @default(uuid())
+  patient_id   String    @unique
+  patient      Patient   @relation(fields: [patient_id], references: [id])
+  answers_data Json      // Patient responses
+  created_at   DateTime  @default(now())
+}
+
+model Journal {
+  id           String    @id @default(uuid())
+  patient_id   String
+  patient      Patient   @relation(fields: [patient_id], references: [id])
+  content      String    @db.Text
+  risk_flag    Boolean   @default(false)
+  created_at   DateTime  @default(now())
+}
+
+model MoodTracker {
+  id           String    @id @default(uuid())
+  patient_id   String
+  patient      Patient   @relation(fields: [patient_id], references: [id])
+  mood_emoji   String
+  logged_at    DateTime  @default(now())
+}
+
+// 5. مجتمعات الدعم (Safe Circles)
+model SafeCircle {
+  id             String         @id @default(uuid())
+  category_name  String         // Depression, Anxiety, etc.
+  
+  circle_members CircleMember[]
+}
+
+model CircleMember {
+  id           String     @id @default(uuid())
+  circle_id    String
+  circle       SafeCircle @relation(fields: [circle_id], references: [id])
+  patient_id   String
+  patient      Patient    @relation(fields: [patient_id], references: [id])
+  pseudonym    String     // Anonymous name
+  joined_at    DateTime   @default(now())
+}
