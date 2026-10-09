@@ -93,7 +93,7 @@ CREATE TABLE "MedicalRecord" (
 -- CreateTable
 CREATE TABLE "Prescription" (
     "id" TEXT NOT NULL,
-    "medical_record_id" TEXT NOT NULL,
+    "ClinicalNote_id" TEXT NOT NULL,
     "pdf_url" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -178,7 +178,7 @@ CREATE UNIQUE INDEX "Caregiver_user_id_key" ON "Caregiver"("user_id");
 CREATE UNIQUE INDEX "Payment_appointment_id_key" ON "Payment"("appointment_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Prescription_medical_record_id_key" ON "Prescription"("medical_record_id");
+CREATE UNIQUE INDEX "Prescription_ClinicalNote_id_key" ON "Prescription"("ClinicalNote_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Assessment_patient_id_key" ON "Assessment"("patient_id");
@@ -214,7 +214,7 @@ ALTER TABLE "MedicalRecord" ADD CONSTRAINT "MedicalRecord_patient_id_fkey" FOREI
 ALTER TABLE "MedicalRecord" ADD CONSTRAINT "MedicalRecord_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "Doctor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Prescription" ADD CONSTRAINT "Prescription_medical_record_id_fkey" FOREIGN KEY ("medical_record_id") REFERENCES "MedicalRecord"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Prescription" ADD CONSTRAINT "Prescription_ClinicalNote_id_fkey" FOREIGN KEY ("ClinicalNote_id") REFERENCES "MedicalRecord"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "Patient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

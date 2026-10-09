@@ -24,9 +24,8 @@ const createOrUpdateWorkingHours = async (userId, data) => {
     return await prisma.workingHours.update({
       where: { id: existingWH.id },
       data: {
-        start_time: new Date(data.start_time),
-        end_time: new Date(data.end_time),
-        is_online: data.is_online,
+        start_time: data.start_time,
+        end_time: data.end_time,
       },
     });
   } else {
@@ -34,14 +33,40 @@ const createOrUpdateWorkingHours = async (userId, data) => {
       data: {
         doctor_id: doctor.id,
         day_of_week: data.day_of_week,
-        start_time: new Date(data.start_time),
-        end_time: new Date(data.end_time),
-        is_online: data.is_online,
+        start_time: data.start_time,
+        end_time: data.end_time,
       },
     });
   }
 };
 
+const deleteWorkingHours = async (userId, workingHoursId) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!doctor) {
+    throw new AppError('Doctor profile not found', 404);
+  }
+
+  const existingWH = await prisma.workingHours.findUnique({
+    where: { id: workingHoursId },
+  });
+
+  if (!existingWH) {
+    throw new AppError('Working hours record not found', 404);
+  }
+
+  if (existingWH.doctor_id !== doctor.id) {
+    throw new AppError('You are not authorized to delete this working hours record', 403);
+  }
+
+  await prisma.workingHours.delete({
+    where: { id: workingHoursId },
+  });
+};
+
 module.exports = {
   createOrUpdateWorkingHours,
+  deleteWorkingHours,
 };

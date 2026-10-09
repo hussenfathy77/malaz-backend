@@ -15,6 +15,16 @@ const setWorkingHours = async (req, res, next) => {
   }
 };
 
+const deleteWorkingHours = async (req, res, next) => {
+  try {
+    await workingHoursService.deleteWorkingHours(req.user.id, req.params.id);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   setWorkingHours,
+  deleteWorkingHours,
 };

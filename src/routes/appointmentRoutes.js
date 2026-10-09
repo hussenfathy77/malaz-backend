@@ -12,14 +12,14 @@ router.use(authMiddleware);
 // Get my appointments (Works for both Doctors and Patients)
 router.get(
   '/',
-  roleMiddleware('Patient', 'Doctor'),
+  roleMiddleware('PATIENT', 'DOCTOR'),
   appointmentController.getUserAppointments
 );
 
 // Book an appointment (Patient only)
 router.post(
   '/',
-  roleMiddleware('Patient'),
+  roleMiddleware('PATIENT'),
   validate(bookAppointmentSchema),
   appointmentController.bookAppointment
 );
@@ -27,9 +27,16 @@ router.post(
 // Update appointment status (Cancel, Complete, etc.)
 router.patch(
   '/:id/status',
-  roleMiddleware('Patient', 'Doctor'),
+  roleMiddleware('PATIENT', 'DOCTOR'),
   validate(updateAppointmentStatusSchema),
   appointmentController.updateAppointmentStatus
+);
+
+// Mock Payment API (Patient only)
+router.post(
+  '/:id/pay',
+  roleMiddleware('PATIENT'),
+  appointmentController.payAppointment
 );
 
 module.exports = router;

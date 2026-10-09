@@ -17,4 +17,10 @@ router.post(
   workingHoursController.setWorkingHours
 );
 
+router.delete(
+  '/:id',
+  roleMiddleware('Doctor'),
+  workingHoursController.deleteWorkingHours
+);
+
 module.exports = router;

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -11,10 +12,15 @@ const authRoutes = require('./routes/authRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const workingHoursRoutes = require('./routes/workingHoursRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
-const medicalRecordRoutes = require('./routes/medicalRecordRoutes');
+const clinicalNoteRoutes = require('./routes/clinicalNoteRoutes');
 const toolkitRoutes = require('./routes/toolkitRoutes');
 const communityRoutes = require('./routes/communityRoutes');
 const caregiverRoutes = require('./routes/caregiverRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const userRoutes = require('./routes/userRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const path = require('path');
 
 const app = express();
 
@@ -22,6 +28,7 @@ const app = express();
 app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Body parser
+app.use('/public', express.static(path.join(__dirname, '../public'))); // Serve static files
 
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev')); // Request logging
@@ -34,10 +41,14 @@ app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/doctors`, doctorRoutes);
 app.use(`${API_PREFIX}/working-hours`, workingHoursRoutes);
 app.use(`${API_PREFIX}/appointments`, appointmentRoutes);
-app.use(`${API_PREFIX}/medical-records`, medicalRecordRoutes);
+app.use(`${API_PREFIX}/clinical-notes`, clinicalNoteRoutes);
 app.use(`${API_PREFIX}/toolkit`, toolkitRoutes);
 app.use(`${API_PREFIX}/circles`, communityRoutes);
 app.use(`${API_PREFIX}/caregivers`, caregiverRoutes);
+app.use(`${API_PREFIX}/admin`, adminRoutes);
+app.use(`${API_PREFIX}/uploads`, uploadRoutes);
+app.use(`${API_PREFIX}/users`, userRoutes);
+app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 
 // Unhandled Routes (Catch-all for 404)
 app.use((req, res, next) => {

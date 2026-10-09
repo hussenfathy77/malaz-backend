@@ -11,7 +11,7 @@ const bookAppointment = async (userId, data) => {
     throw new AppError('Patient profile not found', 404);
   }
 
-  const appointmentDate = new Date(data.schedule_date);
+  const appointmentDate = new Date(data.date);
   // Calculate end time (assuming 1 hour session for simplicity)
   const appointmentEndDate = new Date(appointmentDate.getTime() + 60 * 60 * 1000);
 
@@ -23,9 +23,9 @@ const bookAppointment = async (userId, data) => {
         where: {
           doctor_id: data.doctor_id,
           status: {
-            in: ['Pending', 'Confirmed'], // Active appointments
+            in: ['PENDING', 'CONFIRMED'],
           },
-          schedule_date: {
+          date: {
             gte: new Date(appointmentDate.getTime() - 60 * 60 * 1000 + 1), // 1 hour buffer before
             lt: appointmentEndDate, // buffer after
           },
@@ -37,7 +37,8 @@ const bookAppointment = async (userId, data) => {
       }
 
       // 2. Check doctor's working hours for the selected day
-      const dayOfWeek = appointmentDate.getDay() === 0 ? 7 : appointmentDate.getDay(); // 1 (Mon) - 7 (Sun)
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayOfWeek = dayNames[appointmentDate.getDay()];
       const workingHours = await tx.workingHours.findFirst({
         where: {
           doctor_id: data.doctor_id,
@@ -51,8 +52,21 @@ const bookAppointment = async (userId, data) => {
 
       // Compare times (ignoring dates for working hours config)
       const apptTime = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
-      const whStartTime = workingHours.start_time.getHours() * 60 + workingHours.start_time.getMinutes();
-      const whEndTime = workingHours.end_time.getHours() * 60 + workingHours.end_time.getMinutes();
+      const parseTime = (timeStr) => {
+        const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (!match) return 0;
+        let hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        const modifier = match[3];
+        if (modifier) {
+           if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
+           if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+        }
+        return hours * 60 + minutes;
+      };
+
+      const whStartTime = parseTime(workingHours.start_time);
+      const whEndTime = parseTime(workingHours.end_time);
 
       if (apptTime < whStartTime || apptTime >= whEndTime) {
         throw new AppError('The selected time is outside the doctor\'s working hours.', 400);
@@ -63,9 +77,10 @@ const bookAppointment = async (userId, data) => {
         data: {
           patient_id: patient.id,
           doctor_id: data.doctor_id,
-          schedule_date: appointmentDate,
-          status: 'Pending',
-          type: data.type,
+          date: appointmentDate,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          status: 'PENDING',
         },
       });
 
@@ -92,23 +107,24 @@ const updateAppointmentStatus = async (userId, userRole, appointmentId, data) =>
     throw new AppError('Appointment not found', 404);
   }
 
-  // Authorization check
-  if (userRole === 'Patient' && appointment.patient.user_id !== userId) {
+  // Authorization check (case-insensitive)
+  const normalizedRole = userRole.toUpperCase();
+  if (normalizedRole === 'PATIENT' && appointment.patient.user_id !== userId) {
     throw new AppError('You do not have permission to update this appointment', 403);
   }
-  if (userRole === 'Doctor' && appointment.doctor.user_id !== userId) {
+  if (normalizedRole === 'DOCTOR' && appointment.doctor.user_id !== userId) {
     throw new AppError('You do not have permission to update this appointment', 403);
   }
 
   // State machine rules
-  if (userRole === 'Patient') {
-    if (data.status !== 'Cancelled') {
+  if (normalizedRole === 'PATIENT') {
+    if (data.status !== 'CANCELLED') {
       throw new AppError('Patients can only cancel appointments', 400);
     }
   }
 
   const updateData = { status: data.status };
-  if (data.meeting_link && userRole === 'Doctor') {
+  if (data.meeting_link && normalizedRole === 'DOCTOR') {
     updateData.meeting_link = data.meeting_link;
   }
 
@@ -120,37 +136,90 @@ const updateAppointmentStatus = async (userId, userRole, appointmentId, data) =>
   return updatedAppointment;
 };
 
-const getUserAppointments = async (userId, userRole) => {
+const getUserAppointments = async (userId, userRole, page = 1, limit = 10) => {
   let whereClause = {};
 
-  if (userRole === 'Patient') {
+  const normalizedRole = userRole.toUpperCase();
+  if (normalizedRole === 'PATIENT') {
     const patient = await prisma.patient.findUnique({ where: { user_id: userId } });
+    if (!patient) throw new AppError('Patient profile not found', 404);
     whereClause.patient_id = patient.id;
-  } else if (userRole === 'Doctor') {
+  } else if (normalizedRole === 'DOCTOR') {
     const doctor = await prisma.doctor.findUnique({ where: { user_id: userId } });
+    if (!doctor) throw new AppError('Doctor profile not found', 404);
     whereClause.doctor_id = doctor.id;
   } else {
     throw new AppError('Only Patients and Doctors can view appointments', 403);
   }
 
-  return await prisma.appointment.findMany({
-    where: whereClause,
-    include: {
-      patient: {
-        include: { user: { select: { full_name: true, email: true } } }
+  const skip = (page - 1) * limit;
+
+  const [appointments, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where: whereClause,
+      include: {
+        patient: {
+          include: { user: { select: { full_name: true, email: true } } }
+        },
+        doctor: {
+          include: { user: { select: { full_name: true, email: true } } }
+        }
       },
-      doctor: {
-        include: { user: { select: { full_name: true, email: true } } }
-      }
-    },
-    orderBy: {
-      schedule_date: 'asc'
+      orderBy: {
+        date: 'asc'
+      },
+      skip,
+      take: limit
+    }),
+    prisma.appointment.count({ where: whereClause })
+  ]);
+
+  return {
+    appointments,
+    meta: {
+      totalItems: total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit)
     }
+  };
+};
+
+const payAppointment = async (userId, appointmentId) => {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { patient: true }
   });
+
+  if (!appointment) {
+    throw new AppError('Appointment not found', 404);
+  }
+
+  if (appointment.patient.user_id !== userId) {
+    throw new AppError('You are not authorized to pay for this appointment', 403);
+  }
+
+  // Schema might use 'PENDING' based on Prisma enum formatting
+  const currentStatus = appointment.status.toUpperCase();
+  if (currentStatus !== 'PENDING') {
+    throw new AppError('Only pending appointments can be paid for', 400);
+  }
+
+  // Simulate a 2-second delay for the payment gateway
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  // Note: Depending on Prisma schema, the enum might be 'CONFIRMED' or 'Confirmed'
+  // I will use 'CONFIRMED' as defined in schema.prisma: `enum AppointmentStatus { PENDING CONFIRMED ... }`
+  const updatedAppointment = await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { status: 'CONFIRMED' }
+  });
+
+  return updatedAppointment;
 };
 
 module.exports = {
   bookAppointment,
   updateAppointmentStatus,
   getUserAppointments,
+  payAppointment,
 };

@@ -6,7 +6,8 @@ const validate = (schema, property = 'body') => (req, res, next) => {
         next();
     } catch (error) {
         if (error.name === 'ZodError') {
-            const message = (error.errors || []).map((e) => e.message).join(', ');
+            const issues = error.errors || error.issues || [];
+            const message = issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(', ');
             return next(new AppError(message, 400));
         }
         next(error);

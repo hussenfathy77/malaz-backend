@@ -22,6 +22,8 @@ const getAllVerifiedDoctors = async(query) => {
         where.session_price = {};
         if (query.min_price) where.session_price.gte = parseFloat(query.min_price);
         if (query.max_price) where.session_price.lte = parseFloat(query.max_price);
+    } else if (query.session_price) {
+        where.session_price = parseFloat(query.session_price);
     }
 
     const [doctors, total] = await Promise.all([

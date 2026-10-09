@@ -33,6 +33,12 @@ const authMiddleware = async (req, res, next) => {
       );
     }
 
+    if (currentUser.account_status === 'SUSPENDED') {
+      return next(
+        new AppError('Your account has been suspended. Please contact support.', 403)
+      );
+    }
+
     // Grant access to protected route
     req.user = currentUser;
     next();

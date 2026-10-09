@@ -3,172 +3,228 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // أو حسب قاعدة البيانات المستخدمة
   url      = env("DATABASE_URL")
 }
 
-// 1. المستخدمين والأدوار
-model User {
-  id            String    @id @default(uuid())
-  full_name     String
-  email         String    @unique
-  password_hash String
-  role          String    // Patient, Doctor, Caregiver, Admin
-  created_at    DateTime  @default(now())
+// ================= Enums =================
 
-  patient       Patient?
-  doctor        Doctor?
-  caregiver     Caregiver?
+enum Role {
+  PATIENT
+  DOCTOR
+  CAREGIVER
+  ADMIN
 }
 
-model Patient {
-  id             String    @id @default(uuid())
-  user_id        String    @unique
-  user           User      @relation(fields: [user_id], references: [id])
-  date_of_birth  DateTime
-  phone          String
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
 
-  caregivers      Caregiver[]
-  appointments    Appointment[]
-  reviews         Review[]
-  medical_records MedicalRecord[]
-  journals        Journal[]
-  mood_logs       MoodTracker[]
-  circle_members  CircleMember[]
-  assessment      Assessment?
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum CaregiverStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum CircleRole {
+  ADMIN
+  MEMBER
+}
+
+// ================= Models =================
+
+model User {
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  password           String
+  full_name          String
+  profile_pic        String?             // تمت الإضافة: الصورة الشخصية
+  role               Role
+  account_status     AccountStatus       @default(ACTIVE)
+  preferred_language String              @default("ar")
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+
+  // Relations
+  doctor_profile     Doctor?
+  patient_profile    Patient?
+  notifications      Notification[]
+  circle_messages    SafeCircleMessage[]
+  safe_circles       SafeCircleMember[]  // تمت الإضافة: الربط مع دوائر الأمان
 }
 
 model Doctor {
-  id              String    @id @default(uuid())
-  user_id         String    @unique
-  user            User      @relation(fields: [user_id], references: [id])
+  id              String          @id @default(uuid())
+  user_id         String          @unique
+  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
   specialization  String
-  session_price   Float
-  avg_rating      Float     @default(0.0)
-  is_verified     Boolean   @default(false)
+  bio             String?
+  session_price   Float           @default(0.0)
+  certificate_url String?         // تمت الإضافة: إثبات الهوية/الشهادة للمراجعة
+  is_verified     Boolean         @default(false)
+  avg_rating      Float           @default(0.0)
 
+  // Relations
   working_hours   WorkingHours[]
   appointments    Appointment[]
   reviews         Review[]
-  medical_records MedicalRecord[]
+  clinical_notes  ClinicalNote[]
 }
 
-model Caregiver {
-  id            String    @id @default(uuid())
-  user_id       String    @unique
-  user          User      @relation(fields: [user_id], references: [id])
-  patient_id    String
-  patient       Patient   @relation(fields: [patient_id], references: [id])
-  relation_type String
+model Patient {
+  id                String             @id @default(uuid())
+  user_id           String             @unique
+  user              User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  date_of_birth     DateTime?
+  gender            String?
+  emergency_contact String?
+
+  // Relations
+  appointments      Appointment[]
+  reviews           Review[]
+  clinical_notes    ClinicalNote[]
+  mood_entries      MoodEntry[]
+  journals          Journal[]
+  caregivers        CaregiverPatient[]
 }
 
-// 2. المواعيد، العمل، والدفع
+model CaregiverPatient {
+  id                String          @id @default(uuid())
+  caregiver_id      String
+  patient_id        String
+  patient           Patient         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  consent_scope     String
+  status            CaregiverStatus @default(PENDING)
+  granted_at        DateTime?
+  revoked_at        DateTime?
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+
+  @@unique([caregiver_id, patient_id])
+}
+
 model WorkingHours {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   doctor_id   String
-  doctor      Doctor    @relation(fields: [doctor_id], references: [id])
-  day_of_week Int       // 1 (Monday) to 7 (Sunday)
-  start_time  DateTime  @db.Time
-  end_time    DateTime  @db.Time
-  is_online   Boolean
+  doctor      Doctor   @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  day_of_week String
+  start_time  String
+  end_time    String
 }
 
 model Appointment {
-  id            String    @id @default(uuid())
+  id            String            @id @default(uuid())
   patient_id    String
-  patient       Patient   @relation(fields: [patient_id], references: [id])
+  patient       Patient           @relation(fields: [patient_id], references: [id], onDelete: Cascade)
   doctor_id     String
-  doctor        Doctor    @relation(fields: [doctor_id], references: [id])
-  schedule_date DateTime
-  status        String    // Pending, Confirmed, Completed, Cancelled
-  type          String    // Online, Offline
-  meeting_link  String?   // For Online sessions
+  doctor        Doctor            @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  date          DateTime
+  start_time    String
+  end_time      String
+  status        AppointmentStatus @default(PENDING)
+  meeting_link  String?
+  recording_url String?           // تمت الإضافة: رابط تسجيل الجلسة (اختياري)
+  created_at    DateTime          @default(now())
+  updated_at    DateTime          @updatedAt
 
-  payment       Payment?
+  // Relations
+  review        Review?
+  clinical_note ClinicalNote?
 }
 
-model Payment {
-  id               String      @id @default(uuid())
-  appointment_id   String      @unique
-  appointment      Appointment @relation(fields: [appointment_id], references: [id])
-  amount           Float
-  payment_method   String
-  status           String      // Success, Failed
-  transaction_date DateTime    @default(now())
-}
-
-// 3. السجلات الطبية والتقييمات
-model MedicalRecord {
-  id            String    @id @default(uuid())
-  patient_id    String
-  patient       Patient   @relation(fields: [patient_id], references: [id])
-  doctor_id     String
-  doctor        Doctor    @relation(fields: [doctor_id], references: [id])
-  doctor_notes  String    @db.Text
-  created_at    DateTime  @default(now())
-
-  prescription  Prescription?
-}
-
-model Prescription {
-  id                String        @id @default(uuid())
-  medical_record_id String        @unique
-  medical_record    MedicalRecord @relation(fields: [medical_record_id], references: [id])
-  pdf_url           String
-  created_at        DateTime      @default(now())
+model ClinicalNote {
+  id             String      @id @default(uuid())
+  appointment_id String      @unique
+  appointment    Appointment @relation(fields: [appointment_id], references: [id])
+  doctor_id      String
+  doctor         Doctor      @relation(fields: [doctor_id], references: [id])
+  patient_id     String
+  patient        Patient     @relation(fields: [patient_id], references: [id])
+  diagnosis      String?
+  treatment_plan String?
+  notes          String?
+  created_at     DateTime    @default(now())
 }
 
 model Review {
-  id           String    @id @default(uuid())
-  patient_id   String
-  patient      Patient   @relation(fields: [patient_id], references: [id])
-  doctor_id    String
-  doctor       Doctor    @relation(fields: [doctor_id], references: [id])
-  rating_value Int       // 1 to 5
-  comment      String?   @db.Text
-  created_at   DateTime  @default(now())
+  id             String      @id @default(uuid())
+  appointment_id String      @unique
+  appointment    Appointment @relation(fields: [appointment_id], references: [id])
+  patient_id     String
+  patient        Patient     @relation(fields: [patient_id], references: [id])
+  doctor_id      String
+  doctor         Doctor      @relation(fields: [doctor_id], references: [id])
+  rating         Int
+  comment        String?
+  created_at     DateTime    @default(now())
 }
 
-// 4. الذكاء الاصطناعي والمتابعة
-model Assessment {
-  id           String    @id @default(uuid())
-  patient_id   String    @unique
-  patient      Patient   @relation(fields: [patient_id], references: [id])
-  answers_data Json      // Patient responses
-  created_at   DateTime  @default(now())
+model MoodEntry {
+  id         String   @id @default(uuid())
+  patient_id String
+  patient    Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  mood_score Int
+  note       String?
+  logged_at  DateTime @default(now())
 }
 
 model Journal {
-  id           String    @id @default(uuid())
-  patient_id   String
-  patient      Patient   @relation(fields: [patient_id], references: [id])
-  content      String    @db.Text
-  risk_flag    Boolean   @default(false)
-  created_at   DateTime  @default(now())
+  id          String   @id @default(uuid())
+  patient_id  String
+  patient     Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  content     String
+  ai_feedback String?
+  created_at  DateTime @default(now())
 }
 
-model MoodTracker {
-  id           String    @id @default(uuid())
-  patient_id   String
-  patient      Patient   @relation(fields: [patient_id], references: [id])
-  mood_emoji   String
-  logged_at    DateTime  @default(now())
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  content    String
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
 }
 
-// 5. مجتمعات الدعم (Safe Circles)
 model SafeCircle {
-  id             String         @id @default(uuid())
-  category_name  String         // Depression, Anxiety, etc.
+  id          String              @id @default(uuid())
+  name        String
+  description String?
+  created_at  DateTime            @default(now())
   
-  circle_members CircleMember[]
+  // Relations
+  messages    SafeCircleMessage[]
+  members     SafeCircleMember[]  // تمت الإضافة: ربط الدائرة بأعضائها
 }
 
-model CircleMember {
-  id           String     @id @default(uuid())
-  circle_id    String
-  circle       SafeCircle @relation(fields: [circle_id], references: [id])
-  patient_id   String
-  patient      Patient    @relation(fields: [patient_id], references: [id])
-  pseudonym    String     // Anonymous name
-  joined_at    DateTime   @default(now())
+// تمت الإضافة: جدول عضوية دوائر الأمان
+model SafeCircleMember {
+  id         String     @id @default(uuid())
+  user_id    String
+  user       User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  circle_id  String
+  circle     SafeCircle @relation(fields: [circle_id], references: [id], onDelete: Cascade)
+  role       CircleRole @default(MEMBER) // Admin أو Member
+  joined_at  DateTime   @default(now())
+
+  @@unique([user_id, circle_id])
+}
+
+model SafeCircleMessage {
+  id         String     @id @default(uuid())
+  circle_id  String
+  circle     SafeCircle @relation(fields: [circle_id], references: [id], onDelete: Cascade)
+  sender_id  String
+  sender     User       @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+  content    String
+  created_at DateTime   @default(now())
 }

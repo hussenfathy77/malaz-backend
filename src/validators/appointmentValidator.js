@@ -2,13 +2,14 @@ const { z } = require('zod');
 
 const bookAppointmentSchema = z.object({
   doctor_id: z.string().uuid(),
-  schedule_date: z.string().datetime(), // ISO string with date and time
-  type: z.enum(['Online', 'Offline']),
+  date: z.string().datetime(),
+  start_time: z.string().min(1, 'Start time is required'),
+  end_time: z.string().min(1, 'End time is required'),
 });
 
 const updateAppointmentStatusSchema = z.object({
-  status: z.enum(['Confirmed', 'Completed', 'Cancelled']),
-  meeting_link: z.string().url().optional(), // In case doctor wants to add meeting link when confirming
+  status: z.enum(['CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW']),
+  meeting_link: z.string().url().optional(),
 });
 
 module.exports = {

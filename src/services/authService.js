@@ -28,20 +28,21 @@ const registerUser = async (data) => {
       data: {
         full_name,
         email,
-        password_hash,
+        password: password_hash,
         role,
       },
     });
 
-    if (role === 'Patient') {
+    if (role === 'PATIENT') {
       await tx.patient.create({
         data: {
           user_id: user.id,
-          date_of_birth: new Date(profileData.date_of_birth),
-          phone: profileData.phone,
+          date_of_birth: profileData.date_of_birth ? new Date(profileData.date_of_birth) : null,
+          gender: profileData.gender,
+          emergency_contact: profileData.emergency_contact,
         },
       });
-    } else if (role === 'Doctor') {
+    } else if (role === 'DOCTOR') {
       await tx.doctor.create({
         data: {
           user_id: user.id,
@@ -49,21 +50,14 @@ const registerUser = async (data) => {
           session_price: profileData.session_price,
         },
       });
-    } else if (role === 'Caregiver') {
-      await tx.caregiver.create({
-        data: {
-          user_id: user.id,
-          patient_id: profileData.patient_id,
-          relation_type: profileData.relation_type,
-        },
-      });
     }
+    // CAREGIVER: no separate profile table, just the User record
 
     return user;
   });
 
-  // Exclude password_hash from response
-  const { password_hash: _, ...userWithoutPassword } = result;
+  // Exclude password from response
+  const { password: _, ...userWithoutPassword } = result;
 
   const token = signToken(result.id);
 
@@ -79,13 +73,13 @@ const loginUser = async (email, password) => {
   }
 
   // Check password
-  const isMatch = await bcrypt.compare(password, user.password_hash);
+  const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     throw new AppError('Invalid email or password', 401);
   }
 
   const token = signToken(user.id);
-  const { password_hash: _, ...userWithoutPassword } = user;
+  const { password: _, ...userWithoutPassword } = user;
 
   return { user: userWithoutPassword, token };
 };

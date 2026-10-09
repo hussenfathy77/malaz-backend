@@ -25,12 +25,54 @@ const joinCircle = async (req, res, next) => {
   }
 };
 
-const getCaregiverSummary = async (req, res, next) => {
+
+const getMessages = async (req, res, next) => {
   try {
-    const summary = await communityService.getCaregiverSummary(req.user.id);
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+
+    const { messages, meta } = await communityService.getMessages(req.user.id, req.params.id, page, limit);
     res.status(200).json({
       status: 'success',
-      data: { summary }
+      results: messages.length,
+      data: { messages },
+      meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const sendMessage = async (req, res, next) => {
+  try {
+    const message = await communityService.sendMessage(req.user.id, req.params.id, req.body.content);
+    res.status(201).json({
+      status: 'success',
+      data: { message }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createCircle = async (req, res, next) => {
+  try {
+    const circle = await communityService.createSafeCircle(req.user.id, req.body);
+    res.status(201).json({
+      status: 'success',
+      data: { circle }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addPatientToCircle = async (req, res, next) => {
+  try {
+    const member = await communityService.addPatientToCircle(req.user.id, req.params.id, req.body.patient_id);
+    res.status(201).json({
+      status: 'success',
+      data: { member }
     });
   } catch (error) {
     next(error);
@@ -40,5 +82,8 @@ const getCaregiverSummary = async (req, res, next) => {
 module.exports = {
   getCircles,
   joinCircle,
-  getCaregiverSummary,
+  getMessages,
+  sendMessage,
+  createCircle,
+  addPatientToCircle
 };

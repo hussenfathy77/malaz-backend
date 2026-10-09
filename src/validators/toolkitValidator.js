@@ -1,7 +1,7 @@
 const { z } = require('zod');
 
 const addMoodSchema = z.object({
-  mood_emoji: z.string().min(1, 'Mood emoji is required'),
+  mood_score: z.number().int().min(1).max(10),
 });
 
 const addJournalSchema = z.object({
