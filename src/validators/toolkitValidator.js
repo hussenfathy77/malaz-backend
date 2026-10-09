@@ -2,6 +2,7 @@ const { z } = require('zod');
 
 const addMoodSchema = z.object({
   mood_score: z.number().int().min(1).max(10),
+  note: z.string().optional(),
 });
 
 const addJournalSchema = z.object({

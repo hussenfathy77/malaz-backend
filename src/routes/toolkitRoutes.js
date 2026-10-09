@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 // The entire toolkit is accessible only to Patients
-router.use(roleMiddleware('Patient'));
+router.use(roleMiddleware('PATIENT'));
 
 // Mood Tracking Routes
 router.post('/moods', validate(addMoodSchema), toolkitController.addMood);

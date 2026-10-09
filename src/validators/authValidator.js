@@ -15,9 +15,6 @@ const registerSchema = z.object({
   specialization: z.string().optional(),
   session_price: z.number().positive().optional(),
 }).superRefine((data, ctx) => {
-  if (data.role === 'PATIENT') {
-    if (!data.date_of_birth) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Date of birth is required for Patient', path: ['date_of_birth'] });
-  }
   if (data.role === 'DOCTOR') {
     if (!data.specialization) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Specialization is required for Doctor', path: ['specialization'] });
     if (data.session_price === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Session price is required for Doctor', path: ['session_price'] });

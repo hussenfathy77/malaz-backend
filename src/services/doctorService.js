@@ -132,8 +132,21 @@ const updateDoctorProfile = async(userId, data) => {
     return updatedDoctor;
 };
 
+const updateCertificate = async (userId, fileUrl) => {
+  const doctor = await prisma.doctor.findUnique({ where: { user_id: userId } });
+  if (!doctor) {
+    throw new AppError('Doctor profile not found', 404);
+  }
+
+  await prisma.doctor.update({
+    where: { id: doctor.id },
+    data: { certificate_url: fileUrl }
+  });
+};
+
 module.exports = {
     getAllVerifiedDoctors,
     getDoctorById,
     updateDoctorProfile,
+    updateCertificate,
 };

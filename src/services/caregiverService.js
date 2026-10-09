@@ -10,20 +10,20 @@ const inviteCaregiver = async (patientUserId, data) => {
     throw new AppError('Patient profile not found', 404);
   }
 
-  const { caregiver_user_id, consent_scope } = data;
+  const { email, consent_scope } = data;
 
   const caregiverUser = await prisma.user.findUnique({
-    where: { id: caregiver_user_id }
+    where: { email }
   });
 
   if (!caregiverUser || caregiverUser.role !== 'CAREGIVER') {
-    throw new AppError('Invalid caregiver ID', 400);
+    throw new AppError('Invalid caregiver email or user is not a caregiver', 400);
   }
 
   const existingRelation = await prisma.caregiverPatient.findUnique({
     where: {
       caregiver_id_patient_id: {
-        caregiver_id: caregiver_user_id,
+        caregiver_id: caregiverUser.id,
         patient_id: patient.id
       }
     }
@@ -35,7 +35,7 @@ const inviteCaregiver = async (patientUserId, data) => {
 
   const relation = await prisma.caregiverPatient.create({
     data: {
-      caregiver_id: caregiver_user_id,
+      caregiver_id: caregiverUser.id,
       patient_id: patient.id,
       consent_scope: consent_scope || 'GENERAL',
       status: 'PENDING'

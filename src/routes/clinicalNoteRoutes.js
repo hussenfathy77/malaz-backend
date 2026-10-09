@@ -2,7 +2,8 @@ const express = require('express');
 const clinicalNoteController = require('../controllers/clinicalNoteController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
-// Ignoring validation middleware temporarily since it's likely breaking with schema changes
+const validate = require('../middlewares/validateMiddleware');
+const { createClinicalNoteSchema, updateClinicalNoteSchema } = require('../validators/clinicalNoteValidator');
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.get(
 router.post(
   '/',
   roleMiddleware('Doctor', 'DOCTOR'),
+  validate(createClinicalNoteSchema),
   clinicalNoteController.createNote
 );
 
@@ -26,6 +28,7 @@ router.post(
 router.patch(
   '/:id',
   roleMiddleware('Doctor', 'DOCTOR'),
+  validate(updateClinicalNoteSchema),
   clinicalNoteController.updateNote
 );
 

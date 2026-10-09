@@ -25,6 +25,13 @@ const updateProfile = async (userId, data) => {
   return updatedUser;
 };
 
+const updateProfilePic = async (userId, fileUrl) => {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { profile_pic: fileUrl }
+  });
+};
+
 const getProfile = async (userId) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -45,4 +52,5 @@ const getProfile = async (userId) => {
 module.exports = {
   updateProfile,
   getProfile,
+  updateProfilePic,
 };
