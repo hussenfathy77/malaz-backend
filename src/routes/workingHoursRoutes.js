@@ -12,15 +12,21 @@ router.use(authMiddleware);
 // Only doctors can manage their working hours
 router.post(
   '/',
-  roleMiddleware('Doctor'),
+  roleMiddleware('DOCTOR'),
   validate(createWorkingHoursSchema),
   workingHoursController.setWorkingHours
 );
 
 router.delete(
   '/:id',
-  roleMiddleware('Doctor'),
+  roleMiddleware('DOCTOR'),
   workingHoursController.deleteWorkingHours
+);
+
+router.get(
+  '/',
+  roleMiddleware('DOCTOR'),
+  workingHoursController.getWorkingHours
 );
 
 module.exports = router;

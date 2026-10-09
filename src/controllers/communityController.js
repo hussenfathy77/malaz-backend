@@ -85,5 +85,6 @@ module.exports = {
   getMessages,
   sendMessage,
   createCircle,
-  addPatientToCircle
+  addPatientToCircle,
+  leaveCircle
 };

@@ -175,11 +175,26 @@ const addPatientToCircle = async (doctorIdUser, circleId, patientId) => {
     });
 };
 
+const leaveSafeCircle = async (userId, circleId) => {
+    const member = await prisma.safeCircleMember.findUnique({
+        where: { user_id_circle_id: { user_id: userId, circle_id: circleId } }
+    });
+
+    if (!member) {
+        throw new AppError('You are not a member of this circle', 400);
+    }
+
+    await prisma.safeCircleMember.delete({
+        where: { id: member.id }
+    });
+};
+
 module.exports = {
     getSafeCircles,
     joinSafeCircle,
     getMessages,
     sendMessage,
     createSafeCircle,
-    addPatientToCircle
+    addPatientToCircle,
+    leaveSafeCircle
 };

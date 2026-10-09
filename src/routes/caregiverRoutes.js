@@ -12,6 +12,9 @@ router.use(authMiddleware);
 // Patient invites a caregiver
 router.post('/invite', roleMiddleware('PATIENT'), validate(inviteCaregiverSchema), caregiverController.inviteCaregiver);
 
+// Patient gets their caregivers
+router.get('/my-caregivers', roleMiddleware('PATIENT'), caregiverController.getMyCaregivers);
+
 // Caregiver updates their status (ACTIVE/REVOKED)
 router.put('/:id/status', roleMiddleware('CAREGIVER'), validate(updateCaregiverStatusSchema), caregiverController.updateCaregiverStatus);
 

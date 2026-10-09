@@ -112,8 +112,28 @@ const getCaregiverSummary = async (caregiverUserId, patientId) => {
   };
 };
 
+const getMyCaregivers = async (patientUserId) => {
+  const patient = await prisma.patient.findUnique({
+    where: { user_id: patientUserId }
+  });
+
+  if (!patient) throw new AppError('Patient profile not found', 404);
+
+  const caregivers = await prisma.caregiverPatient.findMany({
+    where: { patient_id: patient.id },
+  });
+
+  const result = await Promise.all(caregivers.map(async (c) => {
+    const user = await prisma.user.findUnique({ where: { id: c.caregiver_id }, select: { id: true, full_name: true, email: true } });
+    return { ...c, caregiver: user };
+  }));
+
+  return result;
+};
+
 module.exports = {
   inviteCaregiver,
   updateCaregiverStatus,
   getCaregiverSummary,
+  getMyCaregivers,
 };

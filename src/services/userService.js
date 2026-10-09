@@ -49,8 +49,28 @@ const getProfile = async (userId) => {
   return user;
 };
 
+const changePassword = async (userId, oldPassword, newPassword) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  
+  const isMatch = await bcrypt.compare(oldPassword, user.password);
+  if (!isMatch) throw new AppError('Incorrect old password', 401);
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword }
+  });
+};
+
+const deleteAccount = async (userId) => {
+  await prisma.user.delete({ where: { id: userId } });
+};
+
 module.exports = {
   updateProfile,
   getProfile,
   updateProfilePic,
+  changePassword,
+  deleteAccount
 };

@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const xss = require('xss-clean');
 
 const AppError = require('./utils/AppError');
 const errorMiddleware = require('./middlewares/errorMiddleware');
@@ -28,7 +30,14 @@ const app = express();
 app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Body parser
+app.use(xss()); // Data sanitization against XSS
 app.use('/public', express.static(path.join(__dirname, '../public'))); // Serve static files
+
+const authLimiter = rateLimit({
+    max: 20, // limit each IP to 20 requests per windowMs
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    message: 'Too many requests from this IP, please try again in 15 minutes!'
+});
 
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev')); // Request logging
@@ -37,7 +46,7 @@ if (process.env.NODE_ENV === 'development') {
 // API Routes
 const API_PREFIX = '/api/v1';
 
-app.use(`${API_PREFIX}/auth`, authRoutes);
+app.use(`${API_PREFIX}/auth`, authLimiter, authRoutes);
 app.use(`${API_PREFIX}/doctors`, doctorRoutes);
 app.use(`${API_PREFIX}/working-hours`, workingHoursRoutes);
 app.use(`${API_PREFIX}/appointments`, appointmentRoutes);

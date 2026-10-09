@@ -66,7 +66,22 @@ const deleteWorkingHours = async (userId, workingHoursId) => {
   });
 };
 
+const getWorkingHours = async (userId) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!doctor) {
+    throw new AppError('Doctor profile not found', 404);
+  }
+
+  return await prisma.workingHours.findMany({
+    where: { doctor_id: doctor.id },
+  });
+};
+
 module.exports = {
   createOrUpdateWorkingHours,
   deleteWorkingHours,
+  getWorkingHours,
 };

@@ -39,8 +39,21 @@ const getCaregiverSummary = async (req, res, next) => {
   }
 };
 
+const getMyCaregivers = async (req, res, next) => {
+  try {
+    const caregivers = await caregiverService.getMyCaregivers(req.user.id);
+    res.status(200).json({
+      status: 'success',
+      data: { caregivers }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   inviteCaregiver,
   updateCaregiverStatus,
   getCaregiverSummary,
+  getMyCaregivers,
 };

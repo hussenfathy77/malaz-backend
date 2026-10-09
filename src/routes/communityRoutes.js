@@ -18,4 +18,6 @@ router.post('/:id/add-patient', roleMiddleware('DOCTOR'), validate(addPatientSch
 router.get('/:id/messages', communityController.getMessages);
 router.post('/:id/messages', validate(sendMessageSchema), communityController.sendMessage);
 
+router.delete('/:id/leave', communityController.leaveCircle);
+
 module.exports = router;

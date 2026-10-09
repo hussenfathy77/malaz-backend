@@ -43,79 +43,82 @@ enum CircleRole {
 // ================= Models =================
 
 model User {
-  id                 String              @id @default(uuid())
-  email              String              @unique
-  password           String
-  full_name          String
-  profile_pic        String?             // تمت الإضافة: الصورة الشخصية
-  role               Role
-  account_status     AccountStatus       @default(ACTIVE)
-  preferred_language String              @default("ar")
-  created_at         DateTime            @default(now())
-  updated_at         DateTime            @updatedAt
+  id                   String        @id @default(uuid())
+  email                String        @unique
+  password             String
+  full_name            String
+  profile_pic          String? // تمت الإضافة: الصورة الشخصية
+  role                 Role
+  account_status       AccountStatus @default(ACTIVE)
+  preferred_language   String        @default("ar")
+  refreshToken         String?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  created_at           DateTime      @default(now())
+  updated_at           DateTime      @updatedAt
 
   // Relations
-  doctor_profile     Doctor?
-  patient_profile    Patient?
-  notifications      Notification[]
-  circle_messages    SafeCircleMessage[]
-  safe_circles       SafeCircleMember[]  // تمت الإضافة: الربط مع دوائر الأمان
+  doctor_profile  Doctor?
+  patient_profile Patient?
+  notifications   Notification[]
+  circle_messages SafeCircleMessage[]
+  safe_circles    SafeCircleMember[] // تمت الإضافة: الربط مع دوائر الأمان
 }
 
 model Doctor {
-  id              String          @id @default(uuid())
-  user_id         String          @unique
-  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id              String  @id @default(uuid())
+  user_id         String  @unique
+  user            User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   specialization  String
   bio             String?
-  session_price   Float           @default(0.0)
-  certificate_url String?         // تمت الإضافة: إثبات الهوية/الشهادة للمراجعة
-  is_verified     Boolean         @default(false)
-  avg_rating      Float           @default(0.0)
+  session_price   Float   @default(0.0)
+  certificate_url String? // تمت الإضافة: إثبات الهوية/الشهادة للمراجعة
+  is_verified     Boolean @default(false)
+  avg_rating      Float   @default(0.0)
 
   // Relations
-  working_hours   WorkingHours[]
-  appointments    Appointment[]
-  reviews         Review[]
-  clinical_notes  ClinicalNote[]
+  working_hours  WorkingHours[]
+  appointments   Appointment[]
+  reviews        Review[]
+  clinical_notes ClinicalNote[]
 }
 
 model Patient {
-  id                String             @id @default(uuid())
-  user_id           String             @unique
-  user              User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid())
+  user_id           String    @unique
+  user              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   date_of_birth     DateTime?
   gender            String?
   emergency_contact String?
 
   // Relations
-  appointments      Appointment[]
-  reviews           Review[]
-  clinical_notes    ClinicalNote[]
-  mood_entries      MoodEntry[]
-  journals          Journal[]
-  caregivers        CaregiverPatient[]
+  appointments   Appointment[]
+  reviews        Review[]
+  clinical_notes ClinicalNote[]
+  mood_entries   MoodEntry[]
+  journals       Journal[]
+  caregivers     CaregiverPatient[]
 }
 
 model CaregiverPatient {
-  id                String          @id @default(uuid())
-  caregiver_id      String
-  patient_id        String
-  patient           Patient         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  consent_scope     String
-  status            CaregiverStatus @default(PENDING)
-  granted_at        DateTime?
-  revoked_at        DateTime?
-  created_at        DateTime        @default(now())
-  updated_at        DateTime        @updatedAt
+  id            String          @id @default(uuid())
+  caregiver_id  String
+  patient_id    String
+  patient       Patient         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  consent_scope String
+  status        CaregiverStatus @default(PENDING)
+  granted_at    DateTime?
+  revoked_at    DateTime?
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
 
   @@unique([caregiver_id, patient_id])
 }
 
 model WorkingHours {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   doctor_id   String
-  doctor      Doctor   @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  doctor      Doctor @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
   day_of_week String
   start_time  String
   end_time    String
@@ -132,7 +135,7 @@ model Appointment {
   end_time      String
   status        AppointmentStatus @default(PENDING)
   meeting_link  String?
-  recording_url String?           // تمت الإضافة: رابط تسجيل الجلسة (اختياري)
+  recording_url String? // تمت الإضافة: رابط تسجيل الجلسة (اختياري)
   created_at    DateTime          @default(now())
   updated_at    DateTime          @updatedAt
 
@@ -196,25 +199,25 @@ model Notification {
 }
 
 model SafeCircle {
-  id          String              @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
-  created_at  DateTime            @default(now())
-  
+  created_at  DateTime @default(now())
+
   // Relations
-  messages    SafeCircleMessage[]
-  members     SafeCircleMember[]  // تمت الإضافة: ربط الدائرة بأعضائها
+  messages SafeCircleMessage[]
+  members  SafeCircleMember[] // تمت الإضافة: ربط الدائرة بأعضائها
 }
 
 // تمت الإضافة: جدول عضوية دوائر الأمان
 model SafeCircleMember {
-  id         String     @id @default(uuid())
-  user_id    String
-  user       User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  circle_id  String
-  circle     SafeCircle @relation(fields: [circle_id], references: [id], onDelete: Cascade)
-  role       CircleRole @default(MEMBER) // Admin أو Member
-  joined_at  DateTime   @default(now())
+  id        String     @id @default(uuid())
+  user_id   String
+  user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  circle_id String
+  circle    SafeCircle @relation(fields: [circle_id], references: [id], onDelete: Cascade)
+  role      CircleRole @default(MEMBER) // Admin أو Member
+  joined_at DateTime   @default(now())
 
   @@unique([user_id, circle_id])
 }

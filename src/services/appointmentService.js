@@ -83,6 +83,16 @@ const bookAppointment = async (userId, data) => {
           status: 'PENDING',
         },
       });
+      
+      const doctorUser = await tx.doctor.findUnique({ where: { id: data.doctor_id }, select: { user_id: true } });
+      if (doctorUser) {
+        await tx.notification.create({
+          data: {
+            user_id: doctorUser.user_id,
+            content: `You have a new appointment booking for ${appointmentDate.toLocaleDateString()}`
+          }
+        });
+      }
 
       return newAppt;
     },
@@ -132,6 +142,15 @@ const updateAppointmentStatus = async (userId, userRole, appointmentId, data) =>
     where: { id: appointmentId },
     data: updateData,
   });
+
+  if (normalizedRole === 'DOCTOR') {
+    await prisma.notification.create({
+      data: {
+        user_id: appointment.patient.user_id,
+        content: `Your appointment status was updated to ${data.status}`
+      }
+    });
+  }
 
   return updatedAppointment;
 };

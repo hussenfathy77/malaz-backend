@@ -24,7 +24,21 @@ const deleteWorkingHours = async (req, res, next) => {
   }
 };
 
+const getWorkingHours = async (req, res, next) => {
+  try {
+    const workingHours = await workingHoursService.getWorkingHours(req.user.id);
+    res.status(200).json({
+      status: 'success',
+      results: workingHours.length,
+      data: { workingHours },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   setWorkingHours,
   deleteWorkingHours,
+  getWorkingHours,
 };
