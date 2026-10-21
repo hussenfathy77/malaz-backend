@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const xss = require('xss-clean');
+//const xss = require('xss-clean');
 
 const AppError = require('./utils/AppError');
 const errorMiddleware = require('./middlewares/errorMiddleware');
@@ -30,7 +30,7 @@ const app = express();
 app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Body parser
-app.use(xss()); // Data sanitization against XSS
+//app.use(xss()); // Data sanitization against XSS
 app.use('/public', express.static(path.join(__dirname, '../public'))); // Serve static files
 
 const authLimiter = rateLimit({
