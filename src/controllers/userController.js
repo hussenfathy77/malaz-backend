@@ -49,9 +49,19 @@ const deleteAccount = async (req, res, next) => {
   }
 };
 
+const updateLocation = async (req, res, next) => {
+  try {
+    const result = await userService.updateLocation(req.user.id, req.user.role, req.body);
+    res.status(200).json({ status: 'success', data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   updateProfile,
   getProfile,
   changePassword,
-  deleteAccount
+  deleteAccount,
+  updateLocation,
 };

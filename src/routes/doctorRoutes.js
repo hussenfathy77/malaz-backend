@@ -10,12 +10,18 @@ const router = express.Router();
 
 router.use('/:doctorId/reviews', reviewRoutes);
 
-// Publicly available (or maybe requires auth to view doctors?)
-// Assuming patients or anyone authenticated can view doctors.
+// Nearby doctors for offline booking (before /:id to avoid route conflict)
+router.get(
+    '/nearby',
+    authMiddleware,
+    doctorController.getNearbyDoctors
+);
+
+// Publicly available list
 router.get(
     '/',
     authMiddleware,
-    validate(getDoctorsQuerySchema, 'query'), // تم تمرير 'query' هنا لفحص الـ Query Parameters بنجاح
+    validate(getDoctorsQuerySchema, 'query'),
     doctorController.getDoctors
 );
 
@@ -26,6 +32,37 @@ router.patch(
     roleMiddleware('DOCTOR'),
     validate(updateDoctorSchema),
     doctorController.updateProfile
+);
+
+// Doctor: list all unique patients
+router.get(
+    '/my-patients',
+    authMiddleware,
+    roleMiddleware('DOCTOR'),
+    doctorController.getMyPatients
+);
+
+// Doctor: get patient's journals
+router.get(
+    '/patients/:patientId/journals',
+    authMiddleware,
+    roleMiddleware('DOCTOR'),
+    doctorController.getPatientJournals
+);
+
+// Doctor: get single patient detail
+router.get(
+    '/patients/:patientId',
+    authMiddleware,
+    roleMiddleware('DOCTOR'),
+    doctorController.getPatientById
+);
+
+// Availability
+router.get(
+    '/:id/availability',
+    authMiddleware,
+    doctorController.getAvailability
 );
 
 router.get(

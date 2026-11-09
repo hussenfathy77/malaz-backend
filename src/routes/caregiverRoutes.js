@@ -15,6 +15,15 @@ router.post('/invite', roleMiddleware('PATIENT'), validate(inviteCaregiverSchema
 // Patient gets their caregivers
 router.get('/my-caregivers', roleMiddleware('PATIENT'), caregiverController.getMyCaregivers);
 
+// Caregiver: get pending invitations sent to them
+router.get('/my-invitations', roleMiddleware('CAREGIVER'), caregiverController.getMyInvitations);
+
+// Caregiver: get active linked patients
+router.get('/my-patients', roleMiddleware('CAREGIVER'), caregiverController.getMyPatients);
+
+// Caregiver: get single relation by ID
+router.get('/relations/:id', roleMiddleware('CAREGIVER'), caregiverController.getRelationById);
+
 // Caregiver updates their status (ACTIVE/REVOKED)
 router.put('/:id/status', roleMiddleware('CAREGIVER'), validate(updateCaregiverStatusSchema), caregiverController.updateCaregiverStatus);
 

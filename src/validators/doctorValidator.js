@@ -12,6 +12,7 @@ const updateDoctorSchema = z.object({
   full_name: z.string().min(2, 'Full name must be at least 2 characters').optional(),
   specialization: z.string().optional(),
   session_price: z.number().positive().optional(),
+  bio: z.string().optional(),
 });
 
 module.exports = {

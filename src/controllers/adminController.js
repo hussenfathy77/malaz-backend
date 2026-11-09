@@ -1,5 +1,20 @@
 const adminService = require('../services/adminService');
 
+const getUsers = async (req, res, next) => {
+  try {
+    const { search, role, status, page, limit } = req.query;
+    const result = await adminService.getUsers({ search, role, status, page, limit });
+    res.status(200).json({ status: 'success', ...result });
+  } catch (error) { next(error); }
+};
+
+const getUserById = async (req, res, next) => {
+  try {
+    const user = await adminService.getUserById(req.params.id);
+    res.status(200).json({ status: 'success', data: { user } });
+  } catch (error) { next(error); }
+};
+
 const getUnverifiedDoctors = async (req, res, next) => {
   try {
     const doctors = await adminService.getUnverifiedDoctors();
@@ -64,6 +79,8 @@ const deleteSafeCircle = async (req, res, next) => {
 };
 
 module.exports = {
+  getUsers,
+  getUserById,
   getUnverifiedDoctors,
   verifyDoctor,
   updateUserStatus,

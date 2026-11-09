@@ -27,4 +27,9 @@ router.delete(
   userController.deleteAccount
 );
 
+router.patch(
+  '/location',
+  userController.updateLocation
+);
+
 module.exports = router;

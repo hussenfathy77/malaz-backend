@@ -10,6 +10,8 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(roleMiddleware('ADMIN'));
 
+router.get('/users', adminController.getUsers);
+router.get('/users/:id', adminController.getUserById);
 router.get('/doctors/unverified', adminController.getUnverifiedDoctors);
 router.patch('/doctors/:id/verify', adminController.verifyDoctor);
 router.patch('/users/:id/status', validate(updateUserStatusSchema), adminController.updateUserStatus);

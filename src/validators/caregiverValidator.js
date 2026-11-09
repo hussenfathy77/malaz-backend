@@ -1,7 +1,8 @@
 const { z } = require('zod');
 
 const inviteCaregiverSchema = z.object({
-  email: z.string().email('Invalid email format')
+  email: z.string().email('Invalid email format'),
+  consent_scope: z.string().optional(),
 });
 
 const updateCaregiverStatusSchema = z.object({

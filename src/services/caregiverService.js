@@ -1,6 +1,54 @@
 const prisma = require('../config/db');
 const AppError = require('../utils/AppError');
 
+// Caregiver: get all invitations sent to them (PENDING)
+const getMyInvitations = async (caregiverUserId) => {
+  const invitations = await prisma.caregiverPatient.findMany({
+    where: { caregiver_id: caregiverUserId, status: 'PENDING' },
+    orderBy: { created_at: 'desc' },
+  });
+
+  // Enrich with patient user info
+  const result = await Promise.all(
+    invitations.map(async (inv) => {
+      const patient = await prisma.patient.findUnique({
+        where: { id: inv.patient_id },
+        include: { user: { select: { id: true, full_name: true, email: true, profile_pic: true } } },
+      });
+      return { ...inv, patient };
+    })
+  );
+  return result;
+};
+
+// Caregiver: get active linked patients
+const getMyPatients = async (caregiverUserId) => {
+  const links = await prisma.caregiverPatient.findMany({
+    where: { caregiver_id: caregiverUserId, status: 'ACTIVE' },
+    orderBy: { granted_at: 'desc' },
+  });
+
+  const result = await Promise.all(
+    links.map(async (link) => {
+      const patient = await prisma.patient.findUnique({
+        where: { id: link.patient_id },
+        include: { user: { select: { id: true, full_name: true, email: true, profile_pic: true } } },
+      });
+      return { ...link, patient };
+    })
+  );
+  return result;
+};
+
+// Caregiver: get a single relation by ID
+const getRelationById = async (caregiverUserId, relationId) => {
+  const relation = await prisma.caregiverPatient.findUnique({ where: { id: relationId } });
+  if (!relation) throw new AppError('Relation not found', 404);
+  if (relation.caregiver_id !== caregiverUserId)
+    throw new AppError('Not authorized to view this relation', 403);
+  return relation;
+};
+
 const inviteCaregiver = async (patientUserId, data) => {
   const patient = await prisma.patient.findUnique({
     where: { user_id: patientUserId }
@@ -132,6 +180,9 @@ const getMyCaregivers = async (patientUserId) => {
 };
 
 module.exports = {
+  getMyInvitations,
+  getMyPatients,
+  getRelationById,
   inviteCaregiver,
   updateCaregiverStatus,
   getCaregiverSummary,

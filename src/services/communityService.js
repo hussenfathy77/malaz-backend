@@ -1,68 +1,61 @@
 const prisma = require('../config/db');
 const AppError = require('../utils/AppError');
 
-const getSafeCircles = async() => {
-    return await prisma.safeCircle.findMany({
+const getSafeCircles = async (userId) => {
+    const circles = await prisma.safeCircle.findMany({
         include: {
-            members: true,
             _count: { select: { members: true } }
         }
     });
+
+    // Attach current user's membership status
+    const memberRecords = await prisma.safeCircleMember.findMany({
+        where: { user_id: userId }
+    });
+    const memberMap = {};
+    for (const m of memberRecords) memberMap[m.circle_id] = m;
+
+    return circles.map(c => ({
+        ...c,
+        my_membership: memberMap[c.id] || null
+    }));
 };
 
-const joinSafeCircle = async(userId, circleId) => {
-    // Any authenticated user can join a circle (schema links User ↔ SafeCircleMember)
-    const circle = await prisma.safeCircle.findUnique({
-        where: { id: circleId }
-    });
+const joinSafeCircle = async (userId, circleId) => {
+    const circle = await prisma.safeCircle.findUnique({ where: { id: circleId } });
+    if (!circle) throw new AppError('Safe circle not found', 404);
 
-    if (!circle) {
-        throw new AppError('Safe circle not found', 404);
-    }
-
-    // Check if already a member
     const existingMember = await prisma.safeCircleMember.findUnique({
-        where: {
-            user_id_circle_id: {
-                user_id: userId,
-                circle_id: circleId,
-            }
-        }
+        where: { user_id_circle_id: { user_id: userId, circle_id: circleId } }
     });
+    if (existingMember) throw new AppError('You already have a pending or active membership for this circle', 400);
 
-    if (existingMember) {
-        throw new AppError('You are already a member of this circle', 400);
-    }
-
-    // Create member
+    // Join as PENDING — requires admin/creator approval
     return await prisma.safeCircleMember.create({
         data: {
             circle_id: circleId,
             user_id: userId,
+            role: 'MEMBER',
+            status: 'PENDING'
         }
     });
 };
 
-const getMessages = async (userId, circleId, page = 1, limit = 10) => {
-    // Check membership
+const getMessages = async (userId, circleId, page = 1, limit = 50) => {
     const member = await prisma.safeCircleMember.findUnique({
         where: { user_id_circle_id: { user_id: userId, circle_id: circleId } }
     });
 
-    if (!member) {
-        throw new AppError('You must be a member of this circle to view messages', 403);
+    if (!member) throw new AppError('You must be a member of this circle to view messages', 403);
+    if (member.status !== 'APPROVED' && member.role !== 'ADMIN') {
+        throw new AppError('Your membership is pending approval', 403);
     }
 
     const skip = (page - 1) * limit;
-
     const [messages, total] = await Promise.all([
         prisma.safeCircleMessage.findMany({
             where: { circle_id: circleId },
-            include: {
-                sender: {
-                    select: { id: true, full_name: true, profile_pic: true }
-                }
-            },
+            include: { sender: { select: { id: true, full_name: true, profile_pic: true } } },
             orderBy: { created_at: 'asc' },
             skip,
             take: limit
@@ -70,108 +63,62 @@ const getMessages = async (userId, circleId, page = 1, limit = 10) => {
         prisma.safeCircleMessage.count({ where: { circle_id: circleId } })
     ]);
 
-    return {
-        messages,
-        meta: {
-            totalItems: total,
-            currentPage: page,
-            totalPages: Math.ceil(total / limit)
-        }
-    };
+    return { messages, meta: { totalItems: total, currentPage: page, totalPages: Math.ceil(total / limit) } };
 };
 
 const sendMessage = async (userId, circleId, content) => {
-    // Check membership
     const member = await prisma.safeCircleMember.findUnique({
         where: { user_id_circle_id: { user_id: userId, circle_id: circleId } }
     });
 
-    if (!member) {
-        throw new AppError('You must be a member of this circle to send messages', 403);
+    if (!member) throw new AppError('You must be a member of this circle to send messages', 403);
+    if (member.status !== 'APPROVED' && member.role !== 'ADMIN') {
+        throw new AppError('Your membership is pending approval', 403);
     }
 
     return await prisma.safeCircleMessage.create({
-        data: {
-            circle_id: circleId,
-            sender_id: userId,
-            content
-        },
-        include: {
-            sender: {
-                select: { id: true, full_name: true, profile_pic: true }
-            }
-        }
+        data: { circle_id: circleId, sender_id: userId, content },
+        include: { sender: { select: { id: true, full_name: true, profile_pic: true } } }
     });
 };
 
 const createSafeCircle = async (userId, data) => {
-    // Both Admin and Doctor can create circles.
-    // We automatically add the creator as an ADMIN member of the new circle.
     const circle = await prisma.safeCircle.create({
         data: {
             name: data.name,
             description: data.description,
+            created_by_user_id: userId,
             members: {
                 create: {
                     user_id: userId,
-                    role: 'ADMIN' // They are the owner/admin of this circle
+                    role: 'ADMIN',
+                    status: 'APPROVED'
                 }
             }
         },
-        include: {
-            members: true
-        }
+        include: { members: true, _count: { select: { members: true } } }
     });
     return circle;
 };
 
 const addPatientToCircle = async (doctorIdUser, circleId, patientId) => {
-    // 1. Verify the doctor is an ADMIN of the circle
     const doctorMember = await prisma.safeCircleMember.findUnique({
         where: { user_id_circle_id: { user_id: doctorIdUser, circle_id: circleId } }
     });
-
     if (!doctorMember || doctorMember.role !== 'ADMIN') {
         throw new AppError('You must be an admin of this circle to add patients', 403);
     }
 
-    // 2. Verify the patient exists and gets their user_id
-    const patient = await prisma.patient.findUnique({
-        where: { id: patientId },
-        include: { user: true }
-    });
+    const patient = await prisma.patient.findUnique({ where: { id: patientId }, include: { user: true } });
+    if (!patient) throw new AppError('Patient not found', 404);
 
-    if (!patient) {
-        throw new AppError('Patient not found', 404);
-    }
-
-    // 3. Optional Bonus Validation: Ensure patient had an appointment with this doctor
-    const doctor = await prisma.doctor.findUnique({ where: { user_id: doctorIdUser } });
-    if (doctor) {
-        const appointment = await prisma.appointment.findFirst({
-            where: { doctor_id: doctor.id, patient_id: patient.id }
-        });
-        if (!appointment) {
-            // Depending on strictness, we might throw here. Let's just log or allow since it's minimum logic.
-            // throw new AppError('This patient is not associated with your clinic', 403);
-        }
-    }
-
-    // 4. Add patient user to circle
     const existingMember = await prisma.safeCircleMember.findUnique({
         where: { user_id_circle_id: { user_id: patient.user.id, circle_id: circleId } }
     });
-
-    if (existingMember) {
-        throw new AppError('Patient is already a member of this circle', 400);
-    }
+    if (existingMember) throw new AppError('Patient is already a member of this circle', 400);
 
     return await prisma.safeCircleMember.create({
-        data: {
-            circle_id: circleId,
-            user_id: patient.user.id,
-            role: 'MEMBER'
-        }
+        data: { circle_id: circleId, user_id: patient.user.id, role: 'MEMBER', status: 'APPROVED' }
     });
 };
 
@@ -179,14 +126,62 @@ const leaveSafeCircle = async (userId, circleId) => {
     const member = await prisma.safeCircleMember.findUnique({
         where: { user_id_circle_id: { user_id: userId, circle_id: circleId } }
     });
+    if (!member) throw new AppError('You are not a member of this circle', 400);
+    await prisma.safeCircleMember.delete({ where: { id: member.id } });
+};
 
-    if (!member) {
-        throw new AppError('You are not a member of this circle', 400);
-    }
+const getJoinRequests = async (userId, circleId) => {
+    const circle = await prisma.safeCircle.findUnique({ where: { id: circleId } });
+    if (!circle) throw new AppError('Circle not found', 404);
 
-    await prisma.safeCircleMember.delete({
-        where: { id: member.id }
+    const isAdmin = await prisma.safeCircleMember.findFirst({
+        where: { user_id: userId, circle_id: circleId, role: 'ADMIN' }
     });
+    const isCreator = circle.created_by_user_id === userId;
+
+    if (!isAdmin && !isCreator) throw new AppError('Only circle admins can view join requests', 403);
+
+    return await prisma.safeCircleMember.findMany({
+        where: { circle_id: circleId, status: 'PENDING' },
+        include: { user: { select: { id: true, full_name: true, profile_pic: true, email: true } } }
+    });
+};
+
+const approveMember = async (userId, circleId, memberId) => {
+    const circle = await prisma.safeCircle.findUnique({ where: { id: circleId } });
+    if (!circle) throw new AppError('Circle not found', 404);
+
+    const isAdmin = await prisma.safeCircleMember.findFirst({
+        where: { user_id: userId, circle_id: circleId, role: 'ADMIN' }
+    });
+    const isCreator = circle.created_by_user_id === userId;
+    if (!isAdmin && !isCreator) throw new AppError('Only circle admins can approve members', 403);
+
+    const memberRecord = await prisma.safeCircleMember.findUnique({ where: { id: memberId } });
+    if (!memberRecord || memberRecord.circle_id !== circleId) throw new AppError('Member request not found', 404);
+
+    return await prisma.safeCircleMember.update({
+        where: { id: memberId },
+        data: { status: 'APPROVED' },
+        include: { user: { select: { id: true, full_name: true } } }
+    });
+};
+
+const rejectMember = async (userId, circleId, memberId) => {
+    const circle = await prisma.safeCircle.findUnique({ where: { id: circleId } });
+    if (!circle) throw new AppError('Circle not found', 404);
+
+    const isAdmin = await prisma.safeCircleMember.findFirst({
+        where: { user_id: userId, circle_id: circleId, role: 'ADMIN' }
+    });
+    const isCreator = circle.created_by_user_id === userId;
+    if (!isAdmin && !isCreator) throw new AppError('Only circle admins can reject members', 403);
+
+    const memberRecord = await prisma.safeCircleMember.findUnique({ where: { id: memberId } });
+    if (!memberRecord || memberRecord.circle_id !== circleId) throw new AppError('Member request not found', 404);
+
+    await prisma.safeCircleMember.delete({ where: { id: memberId } });
+    return { message: 'Member request rejected' };
 };
 
 module.exports = {
@@ -196,5 +191,8 @@ module.exports = {
     sendMessage,
     createSafeCircle,
     addPatientToCircle,
-    leaveSafeCircle
+    leaveSafeCircle,
+    getJoinRequests,
+    approveMember,
+    rejectMember
 };

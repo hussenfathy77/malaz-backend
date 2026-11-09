@@ -2,14 +2,12 @@ const authService = require('../services/authService');
 
 const register = async (req, res, next) => {
   try {
-    const { user, token } = await authService.registerUser(req.body);
-
+    const { user, token, refreshToken } = await authService.registerUser(req.body);
     res.status(201).json({
       status: 'success',
       token,
-      data: {
-        user
-      }
+      refreshToken,
+      data: { user }
     });
   } catch (error) {
     next(error);
@@ -37,11 +35,15 @@ const login = async (req, res, next) => {
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const resetToken = await authService.forgotPassword(email);
+    const result = await authService.forgotPassword(email);
+    // #10 FIX: Never expose resetToken in production
+    // In dev, devResetToken is returned for testing the reset flow
     res.status(200).json({
       status: 'success',
-      message: 'Token generated successfully. In production, this would be emailed.',
-      resetToken // Returning token directly for mocking purposes
+      message: process.env.NODE_ENV === 'production'
+        ? 'If this email is registered, a reset link has been sent.'
+        : 'Dev mode: use devResetToken to test reset flow.',
+      ...(result.devResetToken ? { devResetToken: result.devResetToken } : {}),
     });
   } catch (error) {
     next(error);
@@ -65,11 +67,22 @@ const resetPassword = async (req, res, next) => {
 const refreshToken = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
-    const { token } = await authService.refreshAccessToken(refreshToken);
+    const tokens = await authService.refreshAccessToken(refreshToken);
     res.status(200).json({
       status: 'success',
-      token
+      token: tokens.token,
+      refreshToken: tokens.refreshToken
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const refreshToken = req.body?.refreshToken ?? null;
+    await authService.logoutUser(refreshToken);
+    res.status(200).json({ status: 'success', message: 'Logged out successfully.' });
   } catch (error) {
     next(error);
   }
@@ -80,5 +93,6 @@ module.exports = {
   login,
   forgotPassword,
   resetPassword,
-  refreshToken
+  refreshToken,
+  logout
 };

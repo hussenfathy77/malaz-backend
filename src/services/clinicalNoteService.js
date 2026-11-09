@@ -55,44 +55,91 @@ const getPatientClinicalNotes = async(userId, userRole, patientId) => {
 
     if (userRole === 'Patient' || userRole === 'PATIENT') {
         const patient = await prisma.patient.findUnique({ where: { user_id: userId } });
+        if (!patient) {
+            throw new AppError('Patient profile not found', 404);
+        }
         if (!patientId || patient.id === patientId) {
             finalPatientId = patient.id;
         } else {
             throw new AppError('You are not authorized to view these notes', 403);
         }
-    } else if (userRole === 'Doctor' || userRole === 'DOCTOR') {
-        if (!patientId) {
-            throw new AppError('Patient ID is required to fetch notes', 400);
-        }
-        const doctor = await prisma.doctor.findUnique({ where: { user_id: userId } });
 
-        const hasAccess = await prisma.appointment.findFirst({
-            where: {
-                doctor_id: doctor.id,
-                patient_id: patientId,
+        return await prisma.clinicalNote.findMany({
+            where: { patient_id: finalPatientId },
+            include: {
+                doctor: {
+                    include: {
+                        user: { select: { full_name: true } }
+                    }
+                }
+            },
+            orderBy: {
+                created_at: 'desc'
             }
         });
+    } else if (userRole === 'Doctor' || userRole === 'DOCTOR') {
+        const doctor = await prisma.doctor.findUnique({ where: { user_id: userId } });
+        if (!doctor) {
+            throw new AppError('Doctor profile not found', 404);
+        }
 
-        if (!hasAccess) {
-            throw new AppError('You are not authorized to view this patient\'s notes', 403);
+        if (patientId) {
+            const hasAccess = await prisma.appointment.findFirst({
+                where: {
+                    doctor_id: doctor.id,
+                    patient_id: patientId,
+                }
+            });
+
+            if (!hasAccess) {
+                throw new AppError('You are not authorized to view this patient\'s notes', 403);
+            }
+
+            return await prisma.clinicalNote.findMany({
+                where: {
+                    doctor_id: doctor.id,
+                    patient_id: patientId
+                },
+                include: {
+                    patient: {
+                        include: {
+                            user: { select: { full_name: true } }
+                        }
+                    },
+                    doctor: {
+                        include: {
+                            user: { select: { full_name: true } }
+                        }
+                    }
+                },
+                orderBy: {
+                    created_at: 'desc'
+                }
+            });
+        } else {
+            // When no specific patientId is passed, doctor views all clinical notes documented by them
+            return await prisma.clinicalNote.findMany({
+                where: { doctor_id: doctor.id },
+                include: {
+                    patient: {
+                        include: {
+                            user: { select: { full_name: true } }
+                        }
+                    },
+                    doctor: {
+                        include: {
+                            user: { select: { full_name: true } }
+                        }
+                    }
+                },
+                orderBy: {
+                    created_at: 'desc'
+                }
+            });
         }
     }
 
-    const notes = await prisma.clinicalNote.findMany({
-        where: { patient_id: finalPatientId },
-        include: {
-            doctor: {
-                include: {
-                    user: { select: { full_name: true } }
-                }
-            }
-        },
-        orderBy: {
-            created_at: 'desc'
-        }
-    });
-
-    return notes;
+    return [];
 };
 
 module.exports = {

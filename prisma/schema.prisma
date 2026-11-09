@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // أو حسب قاعدة البيانات المستخدمة
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -47,7 +47,7 @@ model User {
   email                String        @unique
   password             String
   full_name            String
-  profile_pic          String? // تمت الإضافة: الصورة الشخصية
+  profile_pic          String?
   role                 Role
   account_status       AccountStatus @default(ACTIVE)
   preferred_language   String        @default("ar")
@@ -62,7 +62,7 @@ model User {
   patient_profile Patient?
   notifications   Notification[]
   circle_messages SafeCircleMessage[]
-  safe_circles    SafeCircleMember[] // تمت الإضافة: الربط مع دوائر الأمان
+  safe_circles    SafeCircleMember[]
 }
 
 model Doctor {
@@ -72,9 +72,12 @@ model Doctor {
   specialization  String
   bio             String?
   session_price   Float   @default(0.0)
-  certificate_url String? // تمت الإضافة: إثبات الهوية/الشهادة للمراجعة
+  certificate_url String?
   is_verified     Boolean @default(false)
   avg_rating      Float   @default(0.0)
+  latitude        Float?
+  longitude       Float?
+  address         String?
 
   // Relations
   working_hours  WorkingHours[]
@@ -90,6 +93,9 @@ model Patient {
   date_of_birth     DateTime?
   gender            String?
   emergency_contact String?
+  latitude          Float?
+  longitude         Float?
+  address           String?
 
   // Relations
   appointments   Appointment[]
@@ -125,19 +131,20 @@ model WorkingHours {
 }
 
 model Appointment {
-  id            String            @id @default(uuid())
-  patient_id    String
-  patient       Patient           @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  doctor_id     String
-  doctor        Doctor            @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
-  date          DateTime
-  start_time    String
-  end_time      String
-  status        AppointmentStatus @default(PENDING)
-  meeting_link  String?
-  recording_url String? // تمت الإضافة: رابط تسجيل الجلسة (اختياري)
-  created_at    DateTime          @default(now())
-  updated_at    DateTime          @updatedAt
+  id               String            @id @default(uuid())
+  patient_id       String
+  patient          Patient           @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  doctor_id        String
+  doctor           Doctor            @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  date             DateTime
+  start_time       String
+  end_time         String
+  status           AppointmentStatus @default(PENDING)
+  meeting_link     String?
+  recording_url    String?
+  appointment_type String            @default("ONLINE")
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
 
   // Relations
   review        Review?
@@ -199,24 +206,25 @@ model Notification {
 }
 
 model SafeCircle {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  created_at  DateTime @default(now())
+  id                 String   @id @default(uuid())
+  name               String
+  description        String?
+  created_by_user_id String?
+  created_at         DateTime @default(now())
 
   // Relations
   messages SafeCircleMessage[]
-  members  SafeCircleMember[] // تمت الإضافة: ربط الدائرة بأعضائها
+  members  SafeCircleMember[]
 }
 
-// تمت الإضافة: جدول عضوية دوائر الأمان
 model SafeCircleMember {
   id        String     @id @default(uuid())
   user_id   String
   user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   circle_id String
   circle    SafeCircle @relation(fields: [circle_id], references: [id], onDelete: Cascade)
-  role      CircleRole @default(MEMBER) // Admin أو Member
+  role      CircleRole @default(MEMBER)
+  status    String     @default("PENDING")
   joined_at DateTime   @default(now())
 
   @@unique([user_id, circle_id])

@@ -1,5 +1,26 @@
 const caregiverService = require('../services/caregiverService');
 
+const getMyInvitations = async (req, res, next) => {
+  try {
+    const invitations = await caregiverService.getMyInvitations(req.user.id);
+    res.status(200).json({ status: 'success', data: { invitations } });
+  } catch (error) { next(error); }
+};
+
+const getMyPatients = async (req, res, next) => {
+  try {
+    const patients = await caregiverService.getMyPatients(req.user.id);
+    res.status(200).json({ status: 'success', data: { patients } });
+  } catch (error) { next(error); }
+};
+
+const getRelationById = async (req, res, next) => {
+  try {
+    const relation = await caregiverService.getRelationById(req.user.id, req.params.id);
+    res.status(200).json({ status: 'success', data: { relation } });
+  } catch (error) { next(error); }
+};
+
 const inviteCaregiver = async (req, res, next) => {
   try {
     const result = await caregiverService.inviteCaregiver(req.user.id, req.body);
@@ -52,6 +73,9 @@ const getMyCaregivers = async (req, res, next) => {
 };
 
 module.exports = {
+  getMyInvitations,
+  getMyPatients,
+  getRelationById,
   inviteCaregiver,
   updateCaregiverStatus,
   getCaregiverSummary,

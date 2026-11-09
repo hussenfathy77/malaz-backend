@@ -20,4 +20,9 @@ router.post('/:id/messages', validate(sendMessageSchema), communityController.se
 
 router.delete('/:id/leave', communityController.leaveCircle);
 
+// Join request management (admin/creator only)
+router.get('/:id/requests', communityController.getJoinRequests);
+router.patch('/:id/members/:memberId/approve', communityController.approveMember);
+router.patch('/:id/members/:memberId/reject', communityController.rejectMember);
+
 module.exports = router;
